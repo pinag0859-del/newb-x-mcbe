@@ -3,6 +3,11 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
 #include <bgfx_shader.sh>
 #include <newb/main.sh>
 
+// Fuerza de las sombras falsas (0.0 = apagadas, 1.0 = fuertes)
+#ifndef FAKE_SHADOW_STRENGTH
+  #define FAKE_SHADOW_STRENGTH 0.9
+#endif
+
 SAMPLER2D_AUTOREG(s_MatTexture);
 SAMPLER2D_AUTOREG(s_SeasonsTexture);
 SAMPLER2D_AUTOREG(s_LightMapTexture);
@@ -40,6 +45,28 @@ void main() {
   #endif
 
   diffuse.rgb *= color.rgb;
+
+  // ===== SOMBRAS FALSAS (añadido) =====
+  // Se aplican antes del brillo emisivo para que antorchas y lava no se oscurezcan.
+  if (v_extra.b < 0.9) {
+    // luz de cielo: ~0.9 al aire libre, baja bajo techos, árboles y en cuevas
+    float sky = v_extra.r;
+    float lit = smoothstep(0.55, 0.88, sky);            // 1 = al sol, 0 = en sombra
+
+    // luz de antorchas: debilita la sombra cerca de ellas
+    float torch = clamp(v_lightmapUV.x * 1.6 - 0.2, 0.0, 1.0);
+
+    float shadow = clamp((1.0 - lit) * (1.0 - torch) * FAKE_SHADOW_STRENGTH, 0.0, 1.0);
+
+    // sombra oscura y fría (azulada)
+    vec3 shadowCol = diffuse.rgb * vec3(0.55, 0.62, 0.85);
+    diffuse.rgb = mix(diffuse.rgb, shadowCol, shadow);
+
+    // luz de sol ligeramente cálida en zonas iluminadas
+    diffuse.rgb *= mix(vec3_splat(1.0), vec3(1.06, 1.02, 0.94), lit);
+  }
+  // ===== FIN SOMBRAS FALSAS =====
+
   diffuse.rgb += glow;
 
   if (v_extra.b > 0.9) {
