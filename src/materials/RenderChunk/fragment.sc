@@ -14,21 +14,26 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
 // Donde empiezan las sombras (valores de luz de cielo, de 0.0 a ~0.9)
 // Si la sombra clara empieza antes (LO mas cerca de HI) y sube de golpe, se ve mas marcada
 #ifndef SOFT_HI
-  #define SOFT_HI 0.88          // por encima de esto no hay sombra
+  #define SOFT_HI 0.92          // por encima de esto no hay sombra (cielo abierto)
 #endif
 #ifndef SOFT_LO
-  #define SOFT_LO 0.66          // por debajo de esto la sombra clara es total
+  #define SOFT_LO 0.76          // por debajo de esto la sombra clara es total
 #endif
 #ifndef DEEP_HI
-  #define DEEP_HI 0.62          // por encima de esto no hay capa oscura
+  #define DEEP_HI 0.70          // por encima de esto no hay capa oscura
 #endif
 #ifndef DEEP_LO
-  #define DEEP_LO 0.30          // por debajo de esto la capa oscura es total
+  #define DEEP_LO 0.35          // por debajo de esto la capa oscura es total
 #endif
 
 // MODO PRUEBA: pinta el terreno con colores segun la luz de cielo (1 = activado, 0 = apagado)
 #ifndef DEBUG_SKY
-  #define DEBUG_SKY 1
+  #define DEBUG_SKY 0
+#endif
+
+// Sombras en bordes y esquinas de bloques (0.0 = apagadas, 1.0 = fuertes)
+#ifndef EDGE_STRENGTH
+  #define EDGE_STRENGTH 0.5
 #endif
 
 // Saturacion del mundo (1.0 = igual que antes, mas de 1.0 = colores mas vivos)
@@ -78,7 +83,7 @@ void main() {
   // Se aplican antes del brillo emisivo para que antorchas y lava no se oscurezcan.
   if (v_extra.b < 0.9) {
     // luz de cielo: ~0.9 al aire libre, baja bajo techos, árboles y en cuevas
-    float sky = v_extra.r;
+    float sky = v_lightmapUV.y;
     float lit  = smoothstep(SOFT_LO, SOFT_HI, sky);    // 1 = al sol
     float deep = 1.0 - smoothstep(DEEP_LO, DEEP_HI, sky); // 1 = muy oscuro
     float soft = (1.0 - lit) * (1.0 - deep);           // zona intermedia
@@ -93,6 +98,10 @@ void main() {
 
     diffuse.rgb = mix(diffuse.rgb, softCol, soft * SHADOW_SOFT * keep);
     diffuse.rgb = mix(diffuse.rgb, deepCol, deep * SHADOW_DEEP * keep);
+
+    // bordes y esquinas: v_extra.r trae el sombreado de caras y esquinas
+    float edge = smoothstep(0.40, 0.95, v_extra.r);
+    diffuse.rgb *= mix(1.0, edge, EDGE_STRENGTH);
 
     // luz de sol ligeramente cálida en zonas iluminadas
     diffuse.rgb *= mix(vec3_splat(1.0), vec3(1.06, 1.02, 0.94), lit);
