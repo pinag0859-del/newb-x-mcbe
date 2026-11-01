@@ -282,3 +282,36 @@
 #endif
 
 #endif
+/* ===== AJUSTES PROPIOS ===== */
+// Sombras más oscuras
+#undef NL_SHADOW_INTENSITY
+#define NL_SHADOW_INTENSITY 1.0
+#undef NL_MIN_LIGHTING_BOOST
+#define NL_MIN_LIGHTING_BOOST 1.0
+
+// Atardecer más realista
+#undef NL_DAWN_ZENITH_COL
+#define NL_DAWN_ZENITH_COL vec3(0.25,0.22,0.65)
+#undef NL_DAWN_HORIZON_COL
+#define NL_DAWN_HORIZON_COL vec3(2.6,0.95,0.35)
+#undef NL_DAWN_EDGE_COL
+#define NL_DAWN_EDGE_COL vec3(2.6,1.3,0.7)
+#undef NL_GODRAY
+#define NL_GODRAY 0.35
+
+// Agua más nítida para que se vea el reflejo
+#undef NL_WATER_TRANSPARENCY
+#define NL_WATER_TRANSPARENCY 1.0
+#undef NL_WATER_BUMP
+#define NL_WATER_BUMP 0.05
+#undef NL_WATER_TEX_OPACITY
+#define NL_WATER_TEX_OPACITY 0.1
+
+// Más ligero (efectos que casi no se notan)
+#undef NL_GLOW_SHIMMER
+#undef NL_SHOOTING_STAR
+#undef NL_LAVA_NOISE
+#undef NL_WEATHER_SPECK
+#undef NL_UNDERWATER_STREAKS
+#undef NL_RAIN_MIST_OPACITY
+#undef NL_CLOUDY_FOG
