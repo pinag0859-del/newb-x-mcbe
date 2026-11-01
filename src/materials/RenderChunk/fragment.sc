@@ -11,6 +11,21 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
   #define SHADOW_DEEP 0.90      // capa oscura (zonas muy oscuras)
 #endif
 
+// Donde empiezan las sombras (valores de luz de cielo, de 0.0 a ~0.9)
+// Si la sombra clara empieza antes (LO mas cerca de HI) y sube de golpe, se ve mas marcada
+#ifndef SOFT_HI
+  #define SOFT_HI 0.88          // por encima de esto no hay sombra
+#endif
+#ifndef SOFT_LO
+  #define SOFT_LO 0.66          // por debajo de esto la sombra clara es total
+#endif
+#ifndef DEEP_HI
+  #define DEEP_HI 0.62          // por encima de esto no hay capa oscura
+#endif
+#ifndef DEEP_LO
+  #define DEEP_LO 0.30          // por debajo de esto la capa oscura es total
+#endif
+
 // Saturacion del mundo (1.0 = igual que antes, mas de 1.0 = colores mas vivos)
 #ifndef WORLD_SATURATION
   #define WORLD_SATURATION 1.35
@@ -59,8 +74,8 @@ void main() {
   if (v_extra.b < 0.9) {
     // luz de cielo: ~0.9 al aire libre, baja bajo techos, árboles y en cuevas
     float sky = v_extra.r;
-    float lit  = smoothstep(0.55, 0.88, sky);          // 1 = al sol
-    float deep = 1.0 - smoothstep(0.20, 0.50, sky);    // 1 = muy oscuro
+    float lit  = smoothstep(SOFT_LO, SOFT_HI, sky);    // 1 = al sol
+    float deep = 1.0 - smoothstep(DEEP_LO, DEEP_HI, sky); // 1 = muy oscuro
     float soft = (1.0 - lit) * (1.0 - deep);           // zona intermedia
 
     // luz de antorchas: debilita las sombras cerca de ellas
@@ -68,7 +83,7 @@ void main() {
     float keep = 1.0 - torch;
 
     // capa clara azulada y capa oscura casi negra
-    vec3 softCol = diffuse.rgb * vec3(0.68, 0.74, 0.92);
+    vec3 softCol = diffuse.rgb * vec3(0.62, 0.68, 0.88);
     vec3 deepCol = diffuse.rgb * vec3(0.28, 0.30, 0.38);
 
     diffuse.rgb = mix(diffuse.rgb, softCol, soft * SHADOW_SOFT * keep);
