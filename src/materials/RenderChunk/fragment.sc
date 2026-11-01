@@ -26,6 +26,11 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
   #define DEEP_LO 0.30          // por debajo de esto la capa oscura es total
 #endif
 
+// MODO PRUEBA: pinta el terreno con colores segun la luz de cielo (1 = activado, 0 = apagado)
+#ifndef DEBUG_SKY
+  #define DEBUG_SKY 1
+#endif
+
 // Saturacion del mundo (1.0 = igual que antes, mas de 1.0 = colores mas vivos)
 #ifndef WORLD_SATURATION
   #define WORLD_SATURATION 1.35
@@ -115,6 +120,23 @@ void main() {
   // ===== SATURACION (añadido) =====
   float gris = dot(diffuse.rgb, vec3(0.299, 0.587, 0.114));
   diffuse.rgb = max(mix(vec3_splat(gris), diffuse.rgb, WORLD_SATURATION), vec3_splat(0.0));
+
+#if DEBUG_SKY
+  {
+    // mitad izquierda de la pantalla = v_extra.r, mitad derecha = v_lightmapUV.y
+    float s = (gl_FragCoord.x < 800.0) ? v_extra.r : v_lightmapUV.y;
+    vec3 dbg = vec3(0.0, 0.0, 0.0);              // negro      : menos de 0.30
+    if (s > 0.30) dbg = vec3(0.5, 0.0, 0.0);     // rojo oscuro: 0.30 a 0.45
+    if (s > 0.45) dbg = vec3(1.0, 0.0, 0.0);     // rojo       : 0.45 a 0.60
+    if (s > 0.60) dbg = vec3(1.0, 0.5, 0.0);     // naranja    : 0.60 a 0.70
+    if (s > 0.70) dbg = vec3(1.0, 1.0, 0.0);     // amarillo   : 0.70 a 0.78
+    if (s > 0.78) dbg = vec3(0.0, 1.0, 0.0);     // verde      : 0.78 a 0.84
+    if (s > 0.84) dbg = vec3(0.0, 1.0, 1.0);     // celeste    : 0.84 a 0.88
+    if (s > 0.88) dbg = vec3(0.0, 0.0, 1.0);     // azul       : 0.88 a 0.92
+    if (s > 0.92) dbg = vec3(1.0, 1.0, 1.0);     // blanco     : mas de 0.92
+    diffuse.rgb = dbg;
+  }
+#endif
 
   gl_FragColor = diffuse;
 }
