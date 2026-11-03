@@ -5,10 +5,10 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
 
 // Sombras en capas (0.0 = apagada, 1.0 = fuerte)
 #ifndef SHADOW_SOFT
-  #define SHADOW_SOFT 0.85      // capa clara (sombra suave, da profundidad)
+  #define SHADOW_SOFT 1.00      // capa clara (sombra suave, da profundidad)
 #endif
 #ifndef SHADOW_DEEP
-  #define SHADOW_DEEP 0.90      // capa oscura (zonas muy oscuras)
+  #define SHADOW_DEEP 1.00      // capa oscura (zonas muy oscuras)
 #endif
 
 // Donde empiezan las sombras (valores de luz de cielo, de 0.0 a ~0.9)
@@ -17,13 +17,13 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
   #define SOFT_HI 0.92          // por encima de esto no hay sombra (cielo abierto)
 #endif
 #ifndef SOFT_LO
-  #define SOFT_LO 0.76          // por debajo de esto la sombra clara es total
+  #define SOFT_LO 0.82          // por debajo de esto la sombra clara es total
 #endif
 #ifndef DEEP_HI
-  #define DEEP_HI 0.70          // por encima de esto no hay capa oscura
+  #define DEEP_HI 0.78          // por encima de esto no hay capa oscura
 #endif
 #ifndef DEEP_LO
-  #define DEEP_LO 0.35          // por debajo de esto la capa oscura es total
+  #define DEEP_LO 0.40          // por debajo de esto la capa oscura es total
 #endif
 
 // MODO PRUEBA: pinta el terreno con colores segun la luz de cielo (1 = activado, 0 = apagado)
@@ -33,7 +33,30 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
 
 // Sombras en bordes y esquinas de bloques (0.0 = apagadas, 1.0 = fuertes)
 #ifndef EDGE_STRENGTH
-  #define EDGE_STRENGTH 0.5
+  #define EDGE_STRENGTH 1.0
+#endif
+#ifndef EDGE_MIN
+  #define EDGE_MIN 0.35         // lo mas oscuro que llegan los bordes (0.0 = negro, 1.0 = sin efecto)
+#endif
+#ifndef EDGE_START
+  #define EDGE_START 0.30       // mas bajo = las paredes quedan menos oscuras y solo se marca la esquina
+#endif
+#ifndef EDGE_END
+  #define EDGE_END 0.94         // por encima de esto no hay sombra de borde
+#endif
+
+// Contorno oscuro en los bordes de cada bloque
+#ifndef OUTLINE_STRENGTH
+  #define OUTLINE_STRENGTH 1.0   // 0.0 = apagado
+#endif
+#ifndef OUTLINE_DARK
+  #define OUTLINE_DARK 0.55      // 0.0 = negro, 1.0 = sin efecto
+#endif
+#ifndef OUTLINE_TEXELS
+  #define OUTLINE_TEXELS 1.0     // grosor en pixeles de textura (minimo 1.0)
+#endif
+#ifndef ATLAS_TILES
+  #define ATLAS_TILES vec2(64.0, 32.0)  // bloques de 16 px en un atlas de 1024x512
 #endif
 
 // Saturacion del mundo (1.0 = igual que antes, mas de 1.0 = colores mas vivos)
@@ -93,20 +116,36 @@ void main() {
     float keep = 1.0 - torch;
 
     // capa clara azulada y capa oscura casi negra
-    vec3 softCol = diffuse.rgb * vec3(0.62, 0.68, 0.88);
-    vec3 deepCol = diffuse.rgb * vec3(0.28, 0.30, 0.38);
+    vec3 softCol = diffuse.rgb * vec3(0.55, 0.62, 0.82);
+    vec3 deepCol = diffuse.rgb * vec3(0.20, 0.22, 0.30);
 
     diffuse.rgb = mix(diffuse.rgb, softCol, soft * SHADOW_SOFT * keep);
     diffuse.rgb = mix(diffuse.rgb, deepCol, deep * SHADOW_DEEP * keep);
 
     // bordes y esquinas: v_extra.r trae el sombreado de caras y esquinas
-    float edge = smoothstep(0.40, 0.95, v_extra.r);
+    float eo = smoothstep(EDGE_START, EDGE_END, v_extra.r);
+    eo = eo * sqrt(eo);                                 // curva: la esquina se oscurece mas que la cara
+    float edge = mix(EDGE_MIN, 1.0, eo);
     diffuse.rgb *= mix(1.0, edge, EDGE_STRENGTH);
 
     // luz de sol ligeramente cálida en zonas iluminadas
     diffuse.rgb *= mix(vec3_splat(1.0), vec3(1.06, 1.02, 0.94), lit);
   }
   // ===== FIN SOMBRAS EN CAPAS =====
+
+  // ===== CONTORNO DE BLOQUES (añadido) =====
+  // Oscurece los pixeles del borde de cada cara. No se aplica a plantas, hojas ni agua.
+  #if !defined(ALPHA_TEST) && !defined(TRANSPARENT)
+  {
+    vec2 f = fract(v_texcoord0 * ATLAS_TILES);   // posicion dentro del bloque (0 a 1)
+    vec2 tx = floor(f * 16.0);                   // pixel de textura (0 a 15)
+    vec2 d = min(tx, vec2(15.0, 15.0) - tx);     // distancia al borde en pixeles
+    float de = min(d.x, d.y);                    // 0 = justo en el borde
+    float line = 1.0 - smoothstep(0.0, OUTLINE_TEXELS, de);
+    diffuse.rgb *= mix(1.0, OUTLINE_DARK, line * OUTLINE_STRENGTH);
+  }
+  #endif
+  // ===== FIN CONTORNO =====
 
   diffuse.rgb += glow;
 
