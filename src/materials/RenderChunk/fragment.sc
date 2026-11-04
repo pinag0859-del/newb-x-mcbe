@@ -36,7 +36,7 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
   #define EDGE_STRENGTH 1.0
 #endif
 #ifndef EDGE_MIN
-  #define EDGE_MIN 0.35         // lo mas oscuro que llegan los bordes (0.0 = negro, 1.0 = sin efecto)
+  #define EDGE_MIN 0.30         // lo mas oscuro que llegan los bordes (0.0 = negro, 1.0 = sin efecto)
 #endif
 #ifndef EDGE_START
   #define EDGE_START 0.30       // mas bajo = las paredes quedan menos oscuras y solo se marca la esquina
@@ -45,7 +45,10 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
   #define EDGE_END 0.94         // por encima de esto no hay sombra de borde
 #endif
 
-// Contorno oscuro en los bordes de cada bloque
+// Contorno oscuro en los bordes de cada bloque (1 = activado, 0 = apagado y sin costo)
+#ifndef ENABLE_OUTLINE
+  #define ENABLE_OUTLINE 0
+#endif
 #ifndef OUTLINE_STRENGTH
   #define OUTLINE_STRENGTH 1.0   // 0.0 = apagado
 #endif
@@ -135,7 +138,7 @@ void main() {
 
   // ===== CONTORNO DE BLOQUES (añadido) =====
   // Oscurece los pixeles del borde de cada cara. No se aplica a plantas, hojas ni agua.
-  #if !defined(ALPHA_TEST) && !defined(TRANSPARENT)
+  #if ENABLE_OUTLINE && !defined(ALPHA_TEST) && !defined(TRANSPARENT)
   {
     vec2 f = fract(v_texcoord0 * ATLAS_TILES);   // posicion dentro del bloque (0 a 1)
     vec2 tx = floor(f * 16.0);                   // pixel de textura (0 a 15)
