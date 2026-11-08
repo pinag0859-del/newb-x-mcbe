@@ -17,7 +17,7 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
   #define SOFT_HI 0.92          // por encima de esto no hay sombra (cielo abierto)
 #endif
 #ifndef SOFT_LO
-  #define SOFT_LO 0.82          // por debajo de esto la sombra clara es total
+  #define SOFT_LO 0.86          // por debajo de esto la sombra clara es total
 #endif
 #ifndef DEEP_HI
   #define DEEP_HI 0.78          // por encima de esto no hay capa oscura
@@ -35,14 +35,17 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
 #ifndef EDGE_STRENGTH
   #define EDGE_STRENGTH 1.0
 #endif
+#ifndef EDGE_SIDE_STRENGTH
+  #define EDGE_SIDE_STRENGTH 0.25  // fuerza en paredes (0.0 = paredes sin tocar)
+#endif
 #ifndef EDGE_MIN
   #define EDGE_MIN 0.30         // lo mas oscuro que llegan los bordes (0.0 = negro, 1.0 = sin efecto)
 #endif
 #ifndef EDGE_START
-  #define EDGE_START 0.30       // mas bajo = las paredes quedan menos oscuras y solo se marca la esquina
+  #define EDGE_START 0.45       // luz a partir de la cual el anillo es lo mas oscuro
 #endif
 #ifndef EDGE_END
-  #define EDGE_END 0.94         // por encima de esto no hay sombra de borde
+  #define EDGE_END 0.93         // por encima de esto no hay sombra de borde
 #endif
 
 // Contorno oscuro en los bordes de cada bloque (1 = activado, 0 = apagado y sin costo)
@@ -62,6 +65,14 @@ $input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
   #define ATLAS_TILES vec2(64.0, 32.0)  // bloques de 16 px en un atlas de 1024x512
 #endif
 
+// Punto de brillo del sol en el suelo (necesita NL_GROUND_REFL activado en config.h)
+#ifndef DOT_GAIN
+  #define DOT_GAIN 8.0          // intensidad del punto. Si se ve debil, sube a 20.0
+#endif
+#ifndef DOT_POWER
+  #define DOT_POWER 3.0         // tamano: mas alto = punto mas pequeno y concentrado (2.0 a 5.0)
+#endif
+
 // Saturacion del mundo (1.0 = igual que antes, mas de 1.0 = colores mas vivos)
 #ifndef WORLD_SATURATION
   #define WORLD_SATURATION 1.35
@@ -79,6 +90,7 @@ void main() {
 
   vec4 diffuse = texture2D(s_MatTexture, v_texcoord0);
   vec4 color = v_color0;
+  float heightDy = abs(dFdy(v_extra.g));   // casi 0 en caras horizontales (suelo)
 
   #ifdef ALPHA_TEST
     if (diffuse.a < 0.6) {
@@ -119,17 +131,20 @@ void main() {
     float keep = 1.0 - torch;
 
     // capa clara azulada y capa oscura casi negra
-    vec3 softCol = diffuse.rgb * vec3(0.55, 0.62, 0.82);
+    vec3 softCol = diffuse.rgb * vec3(0.58, 0.64, 0.74);
     vec3 deepCol = diffuse.rgb * vec3(0.20, 0.22, 0.30);
 
     diffuse.rgb = mix(diffuse.rgb, softCol, soft * SHADOW_SOFT * keep);
     diffuse.rgb = mix(diffuse.rgb, deepCol, deep * SHADOW_DEEP * keep);
 
     // bordes y esquinas: v_extra.r trae el sombreado de caras y esquinas
+    // anillos de sombra como en la prueba de colores: en el suelo se aplican completos,
+    // en las paredes solo un poco para no oscurecerlas
+    bool isTop = heightDy < 0.0002;
     float eo = smoothstep(EDGE_START, EDGE_END, v_extra.r);
-    eo = eo * sqrt(eo);                                 // curva: la esquina se oscurece mas que la cara
     float edge = mix(EDGE_MIN, 1.0, eo);
-    diffuse.rgb *= mix(1.0, edge, EDGE_STRENGTH);
+    float ringStrength = isTop ? EDGE_STRENGTH : EDGE_SIDE_STRENGTH;
+    diffuse.rgb *= mix(1.0, edge, ringStrength);
 
     // luz de sol ligeramente cálida en zonas iluminadas
     diffuse.rgb *= mix(vec3_splat(1.0), vec3(1.06, 1.02, 0.94), lit);
@@ -159,8 +174,10 @@ void main() {
     float dy = abs(dFdy(v_extra.g));
     if (dy < 0.0002) {
       float mask = v_refl.a*(clamp(v_extra.r*10.0,8.2,8.8)-7.8);
-      diffuse.rgb *= 1.0 - 0.6*mask;
-      diffuse.rgb += v_refl.rgb*mask;
+      // solo el punto: se ignora el reflejo suave del cielo y se deja la parte mas luminosa
+      float glowLum = dot(v_refl.rgb, vec3(0.333, 0.333, 0.333));
+      float hot = pow(max(glowLum, 0.0), DOT_POWER);
+      diffuse.rgb += v_refl.rgb*mask*hot*DOT_GAIN;
     }
   }
 
